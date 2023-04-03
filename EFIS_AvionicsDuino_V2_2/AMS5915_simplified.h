@@ -47,9 +47,9 @@ class AMS5915_simplified
 
     // min and max pressures, millibar
     const int AMS5915_0050_D_P_MIN = 0;
-    const int AMS5915_0050_D_P_MAX = 50;
-    const int AMS5915_1500_A_P_MIN = 0;
-    const int AMS5915_1500_A_P_MAX = 1500;
+    const int AMS5915_0050_D_P_MAX = 15; //1034 mbar -> 15 PSI
+    const int AMS5915_1500_A_P_MIN = -1; // 68 mbar -> 1 PSI
+    const int AMS5915_1500_A_P_MAX = 1;
 
     void getTransducer();
     int readBytes(uint16_t* pressureCounts, uint16_t* temperatureCounts);

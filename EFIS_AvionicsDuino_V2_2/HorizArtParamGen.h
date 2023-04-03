@@ -49,10 +49,17 @@ THE SOFTWARE.
 #define BckgrndMenus 0b1111
 
 //****************** Taille et position du cadre de l'horizon **********************
-#define Cx 240
-#define Cy 136
-#define DH 135
-#define DL 239
+//#define Cx 240
+//#define Cy 136
+//#define DH 135
+//#define DL 239
+
+#define Cx 400
+#define Cy 240
+#define DH 239
+#define DL 399
+#define Sx 800
+#define Sy 480
 
 //****************** Taille de la bille **********************
 #define Rbille 10

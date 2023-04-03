@@ -29,12 +29,17 @@ int AMS5915_simplified::readSensor(char lettre)  // reads data from the sensor
   switch (lettre)
   {
     case 'A' :  digOutPmin = 1638; break;
-    case 'D' : digOutPmin = 1569; break; // le capteur différentiel doit avoir un problème d'étalonnage en usine, la valeur pour une pression différentielle nulle devrait être 1638, hors elle est à 1569
+    case 'D' : digOutPmin = 1638; break; // le capteur différentiel doit avoir un problème d'étalonnage en usine, la valeur pour une pression différentielle nulle devrait être 1638, hors elle est à 1569
   }
 
-  _status = readBytes(&_pressureCounts, &_temperatureCounts);                                                                                                 // get pressure and temperature counts off transducer
-  _data.Pressure_Pa = (((float)(_pressureCounts - digOutPmin)) / (((float)(_digOutPmax - digOutPmin)) / ((float)(_pMax - _pMin))) + (float)_pMin) * _mBar2Pa; // convert counts to pressure, PA
-  _data.Temp_C = (float)((_temperatureCounts * 200)) / 2048.0f - 50.0f;                                                                                       // convert counts to temperature, C
+  _status = readBytes(&_pressureCounts, &_temperatureCounts);     
+//1.0 * (bridge_data - OUTPUT_MIN) * (PRESSURE_MAX - PRESSURE_MIN) / (OUTPUT_MAX - OUTPUT_MIN) + PRESSURE_MIN
+  _data.Pressure_Pa = (((float)(_pressureCounts - digOutPmin)) / (((float)(_digOutPmax - digOutPmin)) / ((float)(_pMax - _pMin))) + (float)_pMin) * _mBar2Pa;
+  //_data.Pressure_Pa = (((float)(_pressureCounts - digOutPmin)) / (((float)(_digOutPmax - digOutPmin)) / ((float)(_pMax - _pMin))) + (float)_pMin) * _mBar2Pa; // convert counts to pressure, PA
+  
+  // * 0.0977) - 50;
+  // * 200)) / 2048.0f - 50.0f;   
+  _data.Temp_C = (float)((_temperatureCounts * 0.0977))- 50.0f;                                                                                       // convert counts to temperature, C
   return _status;
 }
 
@@ -74,7 +79,8 @@ int AMS5915_simplified::readBytes(uint16_t* pressureCounts, uint16_t* temperatur
     _buffer[2] = _bus->read();
     _buffer[3] = _bus->read();
     *pressureCounts = (((uint16_t) (_buffer[0] & 0x3F)) << 8) + (((uint16_t) _buffer[1])); // assemble into a uint16_t
-    *temperatureCounts = (((uint16_t) (_buffer[2])) << 3) + (((uint16_t) _buffer[3] & 0xE0) >> 5);
+    //avant modif honeywell (((uint16_t) (_buffer[2])) << 3) + (((uint16_t) _buffer[3] & 0xE0) >> 5);
+    *temperatureCounts = (((uint16_t) (_buffer[2])) << 8) + (((uint16_t) _buffer[3] & 0xE0) >> 5);
     _status = 1;
   }
   else

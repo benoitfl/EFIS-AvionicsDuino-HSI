@@ -287,52 +287,53 @@ void HorizArt::redessine()
   ptr_tft->setFontScale (0);
   ptr_tft->setTextColor (RA8875_WHITE, RA8875_PINK);
   byte j = 0;
-  for (uint16_t i = 20; i <= 272; i = i + 58) 
+  // ecran de 480*272 20 ***** ecran 800*480  8
+  for (uint16_t i = 8; i <= Sy; i = i + 58) 
   {
-    ptr_tft->setCursor(470, i - 9);
-    ptr_tft->print(abs(2 - j));
+    ptr_tft->setCursor(Sx-10, i - 9);
+    ptr_tft->print(abs(4 - j));
     j++;
   }
-  ptr_tft->drawFastVLine (460, 20, 232, RA8875_WHITE);
+  ptr_tft->drawFastVLine (Sx-20, 8, Sy-16, RA8875_WHITE);
 
   // Dessin des cadres d'affichage des altitudes
-  ptr_tft->fillRect(410, 117, 50, 38, RA8875_BLACK);
-  ptr_tft->drawRect(410, 117, 50, 38, RA8875_LIGHT_GREY);
+  ptr_tft->fillRect(Sx-70, Sy/2-(38/2), 50, 38, RA8875_BLACK);
+  ptr_tft->drawRect(Sx-70, Sy/2-(38/2), 50, 38, RA8875_LIGHT_GREY);
   //ptr_tft->drawRect(410,156,50,20, RA8875_LIGHT_GREY);
   //ptr_tft->drawRect(410,177,50,20, RA8875_LIGHT_GREY);
 
   // Dessin des cadres d'affichage des vitesses
-  ptr_tft->fillRect(2, 117, 60, 38, RA8875_BLACK);
-  ptr_tft->drawRect(2, 117, 60, 38, RA8875_LIGHT_GREY);
+  ptr_tft->fillRect(2, Sy/2-(38/2), 60, 38, RA8875_BLACK);
+  ptr_tft->drawRect(2, Sy/2-(38/2), 60, 38, RA8875_LIGHT_GREY);
   //ptr_tft->drawRect(2,96,60,20, RA8875_LIGHT_GREY);
 
   // Affichage des légendes fixes
-  ptr_tft->setCursor(269, 19); ptr_tft->print("AHRS TRK");
-  ptr_tft->setCursor(152, 19); ptr_tft->print("MAG HDG");
+  ptr_tft->setCursor((Sx/2)+29, 19); ptr_tft->print("AHRS TRK");
+  ptr_tft->setCursor((Sx/2)-88, 19); ptr_tft->print("MAG HDG");
   ptr_tft->setCursor(2, 82); ptr_tft->print("GPS");
   ptr_tft->setCursor(2, 97); ptr_tft->print("TAS");
-  ptr_tft->setCursor(378, 157); ptr_tft->print("AltP");
-  ptr_tft->setCursor(378, 172); ptr_tft->print("AltD");
-  ptr_tft->setCursor(378, 187); ptr_tft->print("AltG");
-  ptr_tft->setCursor(390, 206); ptr_tft->print("QNH");
-  ptr_tft->setCursor (71, 156); ptr_tft->print("IAT:");
-  ptr_tft->setCursor (71, 171); ptr_tft->print("OAT:");
-  ptr_tft->setCursor (71, 186); ptr_tft->print("RH :");
-  ptr_tft->setCursor (71, 201); ptr_tft->print("DPT:");
+  ptr_tft->setCursor(Sx-102, 157); ptr_tft->print("AltP");
+  ptr_tft->setCursor(Sx-102, 172); ptr_tft->print("AltD");
+  ptr_tft->setCursor(Sx-102, 187); ptr_tft->print("AltG");
+  ptr_tft->setCursor(Sx-102, 206); ptr_tft->print("QNH");
+  ptr_tft->setCursor (71, (Sy/2)); ptr_tft->print("IAT:");
+  ptr_tft->setCursor (71, (Sy/2)+15); ptr_tft->print("OAT:");
+  ptr_tft->setCursor (71, (Sy/2)+30); ptr_tft->print("RH :");
+  ptr_tft->setCursor (71, (Sy/2)+45); ptr_tft->print("DPT:");
   ptr_tft->setCursor (2, 30); ptr_tft->print("Wdir:");
   ptr_tft->setCursor (2, 45); ptr_tft->print("Wspd:");
 
   // Dessin des cadres d'affichage de la route et du cap magnétique
-  ptr_tft->fillRect(270, 1, 60, 22, RA8875_BLACK);
-  ptr_tft->drawRect(270, 1, 60, 22, RA8875_LIGHT_GREY);
-  ptr_tft->fillRect(150, 1, 60, 22, RA8875_BLACK);
-  ptr_tft->drawRect(150, 1, 60, 22, RA8875_LIGHT_GREY);
+  ptr_tft->fillRect((Sx/2)+29, 1, 60, 22, RA8875_BLACK);
+  ptr_tft->drawRect((Sx/2)+29, 1, 60, 22, RA8875_LIGHT_GREY);
+  ptr_tft->fillRect((Sx/2)-88, 1, 60, 22, RA8875_BLACK);
+  ptr_tft->drawRect((Sx/2)-88, 1, 60, 22, RA8875_LIGHT_GREY);
 
   // Dessin des cadres d'affichages températures, G, altP&D, varios (dans cet ordre)
-  ptr_tft->drawRect(68, 155, 80, 65, RA8875_LIGHT_GREY);
-  ptr_tft->drawRect(360, 66, 87, 49, 0x7BEF);
-  ptr_tft->drawRect(374, 156, 84, 50, RA8875_LIGHT_GREY);
-  ptr_tft->drawRect(356, 2, 98, 63, 0x7BEF);
+  ptr_tft->drawRect(68, Sy/2, 80, 65, RA8875_LIGHT_GREY);
+  ptr_tft->drawRect(Sx-120, 66, 87, 49, 0x7BEF);
+  ptr_tft->drawRect(Sx-106, 156, 84, 50, RA8875_LIGHT_GREY);
+  ptr_tft->drawRect(Sx-124, 2, 98, 63, 0x7BEF);
 }
 
 // ************************************************************************************** Quelques fonctions primitives graphiques ********************************************************************************************

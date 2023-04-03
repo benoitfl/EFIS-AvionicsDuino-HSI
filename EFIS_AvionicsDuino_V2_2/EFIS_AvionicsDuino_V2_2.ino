@@ -114,6 +114,8 @@ THE SOFTWARE.
 using namespace TeensyTimerTool; 
 #include "HorizArt.h"
 #include "HorizArtParamGen.h"
+#include "HSI.h"
+#include "HSIParamGen.h"
 #include "AMS5915_simplified.h"
 #include <FlexCAN_T4.h>
 
@@ -128,6 +130,7 @@ OneWire  ds(2);
 AMS5915_simplified AMS5915_050D(Wire, 0x28, AMS5915_simplified::AMS5915_0050_D); 
 AMS5915_simplified AMS5915_1500A(Wire1, 0x28, AMS5915_simplified::AMS5915_1500_A); 
 HorizArt Horizon(&tft); 
+HSI HSI(&tft);
 QuadEncoder encodeur(1, 36, 37, 1);  // Canal 1, Phase A (pin36), PhaseB(pin37), pullups nécessaire avec l'encodeur GrayHill(1.
 FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_16> CAN_Module_EFIS;
 File fichier;
@@ -210,7 +213,12 @@ OptionMenu menu[] =
    {" Down",  123, 'P'},
    {"  QUIT", 124, 'Q'},
 
-  {"  QUIT", 13, 'Q'},
+  {"Mode", 13, 'S'},
+    {" BACK",  130, 'B'},
+    {" MODE",  131, 'P'},
+    {"  QUIT", 134, 'Q'},
+
+  {"  QUIT", 14, 'Q'},
 
   {" ", 1000000, '\0'} 
 };
@@ -220,8 +228,9 @@ bool Menu_Ouvert = false;
 bool SetVal = false;
 uint8_t indexOptionMenuEnCours = 0;
 int16_t * ptrGen = NULL;
-uint16_t abscisseMenu = 0, ordonneeMenu = 254;
+uint16_t abscisseMenu = 0, ordonneeMenu = 480-18;
 uint8_t hauteurCase = 18, largeurCase = 53;
+//uint8_t Sx = 800, Sy = 480;
 
 //******************************************************************** Variables Encodeur ***********************************************************************
 int ValeurPositionEncodeur;
@@ -234,6 +243,7 @@ bool Bouton_Clic = false;
 
 // ************************************************************** Variables EFIS - horizon artificiel ***************************************************************
 int16_t QNH;
+int16_t efisMode; // Mode 0 -> Horizon Mode 1 -> HSI
 int16_t YY, MM, DD, HH, Mn, Sec;
 int16_t correctionPression; // Correction d'un offset de pression absolue, variable, exprimée en déciPa. Peut être ajustée dans les menus pour corriger l'erreur altimétrique.
 float correctionAltitude = 0.995; // Idem, mais pour "rattraper" une erreur proportionnelle à l'altidude.
@@ -316,7 +326,7 @@ bool fixOK = false;
 bool heureReglee = false;
 
 //******************************************************* Variables et constantes liées à l'horloge et à la gestion de l'heure *****************************************************************************
-#define Chy 192
+#define Chy 339
 #define Chx 35
 #define Rh 28
 byte LaigH, LaigM, LaigS;
@@ -363,12 +373,12 @@ void setup()
   SPI1.setMISO(1);
   SPI1.setCS(0);
   SPI1.begin();
-  tft.begin(Adafruit_480x272);
+  tft.begin(Adafruit_800x480);
   tft.useLayers(true);
   tft.layerEffect(LAYER1);
   tft.writeTo(L1);
   tft.fillRect(0, 0, 800, 480, RA8875_BLACK);
-  sablier(tft.width() / 2, tft.height() / 2);
+  //sablier(tft.width() / 2, tft.height() / 2);
   tft.writeTo(L2);
   tft.fillRect(0, 0, 480, 272, RA8875_BLACK);
   photo("MTBLANC2.out", 470,262); // affiche une photo sur la layer 2
@@ -473,6 +483,7 @@ void setup()
     luminosite = 8;  
     accGmax = 1.0;
     accGmin = 1.0;
+    
 
     EEPROM.put(EFISeepromAdresse + 0, QNH);
     EEPROM.put(EFISeepromAdresse + 2, magDev);
@@ -482,6 +493,7 @@ void setup()
     EEPROM.put(EFISeepromAdresse + 12, luminosite);
     EEPROM.put(EFISeepromAdresse + 14, accGmax);
     EEPROM.put(EFISeepromAdresse + 18, accGmin);
+    EEPROM.put(EFISeepromAdresse + 6, efisMode);
   }
   else 
   {
@@ -493,6 +505,7 @@ void setup()
     EEPROM.get(EFISeepromAdresse + 12, luminosite);
     EEPROM.get(EFISeepromAdresse + 14, accGmax);
     EEPROM.get(EFISeepromAdresse + 18, accGmin);
+    EEPROM.get(EFISeepromAdresse + 6, efisMode);
   }
   tft.println("EEPROM                : OK");
   delay(199);
@@ -563,6 +576,9 @@ void setup()
   // ********************************************************************************************** Démarrage de l'objet horizon ********************************************************************************************
   delay(1000);
   Horizon.begin();
+
+  // ********************************************************************************************** Démarrage de l'objet HSI ********************************************************************************************
+  HSI.begin();
 
   // ******************************************************* Dessin de l'horloge sur le premier plan (layer 1) et initialisations de quelques variables liées à cette horloge **************************************************
   tft.writeTo(L1);
@@ -981,6 +997,9 @@ if (okSendDataToRecord && recordStarted) // okSendDataToRecord mis sur true par 
                           tft.setCursor (320, 222); 
                           tft.print ("     "); 
                           break;
+              case 131  : ptrGen = &efisMode;
+                          OffsetEFISeepromAdresse =  6;   
+              break;
               case 1131 : ptrGen = &YY;
                           OffsetEFISeepromAdresse =  8;   
                           break;
@@ -1155,7 +1174,12 @@ if (okSendDataToRecord && recordStarted) // okSendDataToRecord mis sur true par 
   }
 
   // ************************************************************************************ Mise à jour de l'horizon artificiel****************************************************************************************
+  if(efisMode == 0){
   Horizon.dessine(roll, pitch, psi, offsetBille, Menu_Ouvert);
+  } else {
+  HSI.dessine(capMagnetique, trkEntierArrondi, psi, offsetBille, Menu_Ouvert);
+  }
+
 
   // ************************************************************************* Mesure de la durée de la boucle principale Loop ************************************************************************************
   if (nombreBoucleLoop >= Ndb)
@@ -1249,30 +1273,30 @@ void afficheTextes()
   tft.print (buf); 
   if (facteurConversionVitesse == 1.0)tft.print (" Km/h"); 
   else tft.print (" Kts ");
-
+  int offsetAff = 480/2;
   // ------------- Affichage IAT ---------------------------
-  tft.setCursor (105, 156); 
+  tft.setCursor (105, offsetAff); 
   printDecimalInfCent(iat, 1);
-
+  offsetAff = offsetAff+15;
   // ------------- Affichage OAT ---------------------------
-  tft.setCursor (105, 171); 
+  tft.setCursor (105, offsetAff); 
   printDecimalInfCent(oat, 1);
-
+  offsetAff = offsetAff+15;
   // --------------Affichage Humidité ---------------------
-  tft.setCursor (105, 186); 
+  tft.setCursor (105, offsetAff); 
   printDecimalInfCent(humiditeRelative, 1);
-
+  offsetAff = offsetAff+15;
   // --------------Affichage DewPoint ---------------------
-  tft.setCursor (105, 201); 
+  tft.setCursor (105, offsetAff); 
   printDecimalInfCent(dewPoint, 1);
 
   // ------------- Affichage Vitesse indiquée ---------------------------
   tft.setFontScale (1); 
   tft.setTextColor (RA8875_WHITE, RA8875_BLACK);
   sprintf (buf, "%3d", (vitesseIndiquee)); 
-  tft.setCursor (7, 118);  
+  tft.setCursor (7, Sy/2-(38/2));  
   tft.print (buf);
-  tft.setCursor (65, 127); 
+  tft.setCursor (65, ((Sy/2)-(38/2))+2); 
   tft.setFontScale (0); 
   tft.setTextColor (RA8875_WHITE, RA8875_PINK); 
   if (facteurConversionVitesse == 1.0)tft.print ("Km/h"); 
@@ -1283,12 +1307,12 @@ void afficheTextes()
   else tft.setTextColor (RA8875_WHITE, RA8875_BLACK);     // Si la vitesse GPS est trop faible (moins de 6 ou 7 km/h), psi n'est pas fiable, les paramètre trk et psi vont s'afficher sur fond rouge au lieu de noir.
   tft.setFontScale (1, 0); 
   sprintf (buf, "%3d", trkEntierArrondi); 
-  tft.setCursor (276, 3); 
+  tft.setCursor ((Sx/2)+30, 3); 
   tft.print (buf);
 
   // --------------Affichage cap magnétique ---------------------
   tft.setTextColor (RA8875_WHITE, RA8875_BLACK);
-  tft.setCursor (156, 3);  
+  tft.setCursor ((Sx/2)-87, 3);  
   sprintf (buf, "%3d", capMagnetique); 
   tft.print(buf);
 
@@ -1311,13 +1335,13 @@ void afficheTextes()
   else tft.print ("Kts ");
 
   // ------------- Affichage Vz AHRS et Vario barométrique ---------------------------
-  tft.setCursor(363, 3); 
+  tft.setCursor(Sx-117, 3); 
   tft.print("Vert. speed");
-  tft.setCursor (363, 33);   
+  tft.setCursor (Sx-117, 33);   
   tft.print("AHRS :"); 
   sprintf (buf, "%5d", Vzint); 
   tft.print(buf);
-  tft.setCursor (363, 48);   
+  tft.setCursor (Sx-117, 48);   
   tft.print("BARO :"); 
   sprintf (buf, "%5d", int(vario)); 
   tft.print(buf);
@@ -1330,7 +1354,7 @@ void afficheTextes()
 
 
   // ------------- Affichage QNH ---------------------------
-  tft.setCursor (420, 206); 
+  tft.setCursor (Sx-60, 206); 
   sprintf (buf, "%4d", QNH); 
   tft.print(buf);
 
@@ -1338,26 +1362,26 @@ void afficheTextes()
   tft.setFontScale (0, 1); 
   tft.setTextColor (RA8875_WHITE, RA8875_BLACK);
   sprintf (buf, "%5d", int(altitudeQNH)); 
-  tft.setCursor (415, 118);  
+  tft.setCursor (Sx-65, ((Sy/2)-(38/2))+1);  
   tft.print (buf);
   tft.setFontScale (0); 
   tft.setTextColor (RA8875_WHITE, RA8875_PINK);
   sprintf (buf, "%5d", int(altitudePression)); 
-  tft.setCursor (415, 157); 
+  tft.setCursor (Sx-65, 157); 
   tft.print (buf);
   sprintf (buf, "%5d", int(altitudeDensite)); 
-  tft.setCursor (415, 172); 
+  tft.setCursor (Sx-65, 172); 
   tft.print (buf);
   sprintf (buf, "%5d", int(altitudeGNSS)); 
-  tft.setCursor (415, 187); 
+  tft.setCursor (Sx-65, 187); 
   tft.print (buf);
 
   // ------------- Affichage G, Gmin et Gmax ---------------------------
-  tft.setCursor (363, 82); 
+  tft.setCursor (Sx-117, 82); 
   tft.print ("G    :"); printDecimalInfDix(accG, 1);
-  tft.setCursor (363, 67); 
+  tft.setCursor (Sx-117, 67); 
   tft.print ("Gmax :"); printDecimalInfDix(accGmax, 1);
-  tft.setCursor (363, 97); 
+  tft.setCursor (Sx-117, 97); 
   tft.print ("Gmin :"); printDecimalInfDix(accGmin, 1);
 
   // ------------- Affichage durée loop() ---------------------------
@@ -1372,25 +1396,25 @@ void afficheVario()
 {
   // affichage des barres en premier 
   int8_t hauteurBarre;
-  if (abs(vario) > 2000) hauteurBarre = 116;
+  if (abs(vario) > 2000) hauteurBarre = 58*4;
   else hauteurBarre = abs(int8_t((vario * 58) / 1000));
   if (vario < 0)
   {
-    tft.fillRect(461, 20, 9, 116, RA8875_PINK);
-    tft.fillRect(461, 136, 9, hauteurBarre, RA8875_PURPLE);
-    tft.fillRect(461, 136 + hauteurBarre, 9, 252 - 136 - hauteurBarre, RA8875_PINK);
-    tft.drawRect(460, 136, 10, hauteurBarre + 1, RA8875_WHITE);
+    tft.fillRect(Sx-19, 8, 9, 58*4, RA8875_PINK);
+    tft.fillRect(Sx-19, Sy/2, 9, hauteurBarre, RA8875_PURPLE);
+    tft.fillRect(Sx-19, Sy/2 + hauteurBarre, 9, 252 - 136 - hauteurBarre, RA8875_PINK);
+    tft.drawRect(Sx-20, Sy/2, 10, hauteurBarre + 1, RA8875_WHITE);
   }
   else
   {
-    tft.fillRect(461, 20, 9, 116 - hauteurBarre, RA8875_PINK);
-    tft.fillRect(461, 136 - hauteurBarre, 9, hauteurBarre, 0b1111111001000000);
-    tft.fillRect(461, 136, 9, 116, RA8875_PINK);
-    tft.drawRect(460, 136 - hauteurBarre, 10, hauteurBarre + 1, RA8875_WHITE);
+    tft.fillRect(Sx-19, 8, 9, 58*4 - hauteurBarre, RA8875_PINK);
+    tft.fillRect(Sx-19, Sy/2 - hauteurBarre, 9, hauteurBarre, 0b1111111001000000);
+    tft.fillRect(Sx-19, Sy/2, 9, hauteurBarre, RA8875_PINK);
+    tft.drawRect(Sx-20, Sy/2 - hauteurBarre, 10, hauteurBarre + 1, RA8875_WHITE);
   }
-  // puis affichage des graduations
-  for (uint16_t i = 49; i <= 272; i = i + 58) tft.drawFastHLine (460, i, 6, RA8875_WHITE);
-  for (uint16_t i = 20; i <= 272; i = i + 58) tft.drawFastHLine (460, i, 10, RA8875_WHITE);
+  // puis affichage des graduations pour un ecran de 480*272 49 et 20 ***** ecran 800*480 37 8
+  for (uint16_t i = 37; i <= Sy; i = i + 58) tft.drawFastHLine (Sx-20, i, 6, RA8875_WHITE);
+  for (uint16_t i = 8; i <= Sy; i = i + 58) tft.drawFastHLine (Sx-20, i, 10, RA8875_WHITE);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1477,7 +1501,12 @@ void FermeMenu()
   Menu_Ouvert = false;
   Bouton_Clic = false;   
   tft.fillRect (abscisseMenu, ordonneeMenu - hauteurCase, tft.width() - abscisseMenu, hauteurCase * 2, RA8875_PINK);
-  Horizon.redessine();
+  //Horizon.redessine();
+  if(efisMode == 0){
+    Horizon.redessine();
+  } else {
+    HSI.redessine();
+  }
   tft.setFontDefault();
   tft.setFontScale (0);
 }
